@@ -47,6 +47,13 @@ fn build(output: &str) {
         }
     }
 
+    // libev has no pkg-config so explicitly get info from brew on osx
+    let libev_arg = if is_os_x() {
+        format!("--with-libev={}", get_libev_os_x())
+    } else {
+        String::from("")
+    };
+
     // We always run configure to setup a new installation prefix if needed
     // when switching from debug and release Rust targets.
     let exit_code = Command::new("./configure")
@@ -54,6 +61,7 @@ fn build(output: &str) {
             .arg(format!("--prefix={}", output))
             .arg(format!("--without-java"))
             .arg(format!("--host={}", env::var("TARGET_TRIPLE").unwrap_or(env::var("TARGET").unwrap())))
+            .arg(libev_arg)
             .current_dir("libpagekite")
             .status().unwrap();
 
@@ -72,6 +80,21 @@ fn build(output: &str) {
     if !exit_code.success() {
         panic!(format!("Failure running `make -C libpagekite`"));
     }
+}
+
+fn is_os_x() -> bool {
+    let exit_code = Command::new("sw_vers").status().unwrap();
+
+    exit_code.success()
+}
+
+fn get_libev_os_x() -> String {
+    String::from_utf8(Command::new("brew")
+        .arg("--prefix")
+        .arg("libev")
+        .output()
+        .expect("failed to find libev via brew")
+        .stdout).unwrap()
 }
 
 #[allow(unused_must_use)]

@@ -47,23 +47,25 @@ fn build(output: &str) {
         }
     }
 
-    // libev has no pkg-config so explicitly get info from brew on osx
-    let libev_arg = if is_os_x() {
-        format!("--with-libev={}", get_libev_os_x())
-    } else {
-        String::from("")
-    };
-
     // We always run configure to setup a new installation prefix if needed
     // when switching from debug and release Rust targets.
-    let exit_code = Command::new("./configure")
-            .env("CFLAGS", "-fPIC") // Needed to build the static library as PIC.
-            .arg(format!("--prefix={}", output))
-            .arg(format!("--without-java"))
-            .arg(format!("--host={}", env::var("TARGET_TRIPLE").unwrap_or(env::var("TARGET").unwrap())))
-            .arg(libev_arg)
-            .current_dir("libpagekite")
-            .status().unwrap();
+    let mut configure_command = Command::new("./configure");
+    configure_command.env("CFLAGS", "-fPIC") // Needed to build the static library as PIC.
+        .arg(format!("--prefix={}", output))
+        .arg(format!("--without-java"))
+        .arg(format!("--host={}", env::var("TARGET_TRIPLE").unwrap_or(env::var("TARGET").unwrap())))
+        .current_dir("libpagekite");
+
+    if is_os_x() {
+        configure_command
+            // libev has no pkg-config so explicitly get info from brew on osx
+            .arg(format!("--with-libev={}", get_lib_os_x("libev")))
+
+            // OSX dropped support for openssl, explicitly use the brew installed lib
+            .arg(format!("--with-openssl={}", get_lib_os_x("openssl")));
+    }
+
+    let exit_code = configure_command.status().unwrap();
 
     if !exit_code.success() {
         panic!("Failed to run libpagekite/configure");
@@ -88,12 +90,12 @@ fn is_os_x() -> bool {
     exit_code.success()
 }
 
-fn get_libev_os_x() -> String {
+fn get_lib_os_x(lib: &str) -> String {
     String::from_utf8(Command::new("brew")
         .arg("--prefix")
-        .arg("libev")
+        .arg(lib)
         .output()
-        .expect("failed to find libev via brew")
+        .expect(format!("failed to find {} via brew", lib).as_str())
         .stdout).unwrap()
 }
 

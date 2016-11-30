@@ -4,8 +4,7 @@
 
 extern crate pkg_config;
 
-use std::process::{ Command, ExitStatus };
-use std::os::unix::process::ExitStatusExt;
+use std::process::Command;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -57,13 +56,13 @@ fn build(output: &str) {
         .arg(format!("--host={}", env::var("TARGET_TRIPLE").unwrap_or(env::var("TARGET").unwrap())))
         .current_dir("libpagekite");
 
-    if is_os_x() {
+    if cfg!(target_os = "macos") {
         configure_command
             // libev has no pkg-config so explicitly get info from brew on osx
-            .arg(format!("--with-libev={}", get_lib_os_x("libev")))
+            .arg(format!("--with-libev={}", get_brew_lib("libev")))
 
             // OSX dropped support for openssl, explicitly use the brew installed lib
-            .arg(format!("--with-openssl={}", get_lib_os_x("openssl")));
+            .arg(format!("--with-openssl={}", get_brew_lib("openssl")));
     }
 
     let exit_code = configure_command.status().unwrap();
@@ -85,15 +84,7 @@ fn build(output: &str) {
     }
 }
 
-fn is_os_x() -> bool {
-    let exit_code = Command::new("sw_vers")
-        .status()
-        .unwrap_or(ExitStatus::from_raw(1));
-
-    exit_code.success()
-}
-
-fn get_lib_os_x(lib: &str) -> String {
+fn get_brew_lib(lib: &str) -> String {
     String::from_utf8(Command::new("brew")
         .arg("--prefix")
         .arg(lib)

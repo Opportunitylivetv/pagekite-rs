@@ -4,7 +4,8 @@
 
 extern crate pkg_config;
 
-use std::process::Command;
+use std::process::{ Command, ExitStatus };
+use std::os::unix::process::ExitStatusExt;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -85,7 +86,9 @@ fn build(output: &str) {
 }
 
 fn is_os_x() -> bool {
-    let exit_code = Command::new("sw_vers").status().unwrap();
+    let exit_code = Command::new("sw_vers")
+        .status()
+        .unwrap_or(ExitStatus::from_raw(1));
 
     exit_code.success()
 }
